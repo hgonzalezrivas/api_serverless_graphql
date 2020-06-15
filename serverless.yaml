@@ -1,0 +1,62 @@
+service: <service_name>
+provider:
+  name: aws
+  runtime: python3.7
+  vpc:
+    securityGroupIds:
+      - your_sg
+    subnetIds:
+      - your_subnet_a
+      - your_subnet_b
+  stage: dev
+  region: us-east-1
+  apiName: ${self:service}-api
+  stackName: ${self:service}-cloudformation
+  memorySize: 128
+  role: arn:aws:iam::<aws_account>:role/<role_name>
+  deploymentBucket:
+    name: deployment_bucket
+    versioning: true
+plugins:
+  - serverless-wsgi
+  - serverless-python-requirements
+  - serverless-deployment-bucket
+  - serverless-domain-manager
+package:
+  exclude:
+    - venv/**
+custom:
+  wsgi:
+    app: app.app
+    packRequirements: false
+  domain:
+    stage_domain: <domain>
+  customDomain:
+    domainName: ${self:custom.domain.${opt:stage}}
+    basePath: path
+    stage: ${self:provider.stage}
+    certificateName: '*.hostname.com'
+    createRoute53Record: true
+    endpointType: 'regional'
+    securityPolicy: tls_1_2
+    apiType: rest
+functions:
+  app:
+    name: ${self:service}
+    handler: wsgi_handler.handler
+    description: Service Description
+    memorySize: 512
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:<aws_account>:layer:<layer_name>:<version>
+    vpc:
+      securityGroupIds:
+        - sg-<security_group>
+      subnetIds:
+        - subnet-<subnet_a>
+        - subnet-<subnet_b>
+    events:
+      - http:
+          method: any
+          path: /{proxy+}
+          cors: true
